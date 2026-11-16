@@ -141,6 +141,20 @@ public final class TdlibChatListSlice implements Destroyable {
     return -atIndex - 1;
   }
 
+  /**
+   * Returns true if the chat must be hidden from this list because of stealth mode.
+   * Once a chat is hidden, indexes of filteredList no longer match indexes of the source list,
+   * so we permanently switch to index lookup by chat id (haveCustomModifications).
+   */
+  private boolean isHiddenByStealth (long chatId) {
+    final StealthController stealth = StealthController.getInstance();
+    if (stealth.isStealthEnabled() && !stealth.isChatAllowed(chatId)) {
+      haveCustomModifications = true;
+      return true;
+    }
+    return false;
+  }
+
   public void initializeList (@NonNull ChatListListener subListener, @NonNull RunnableData<List<Entry>> subCallback, int initialChunkSize, Runnable onLoadInitialChunk) {
     if (this.listener != null)
       throw new IllegalStateException();
@@ -166,7 +180,7 @@ public final class TdlibChatListSlice implements Destroyable {
           if (!filter.accept(chat))
             return;
         }
-        if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
+        if (isHiddenByStealth(chat.id)) {
           return;
         }
         Entry entry = new Entry(chat, chatList.chatList(), changeInfo.position, keepPositions);
@@ -216,14 +230,13 @@ public final class TdlibChatListSlice implements Destroyable {
           if (fromIndex == -1) // chat is filtered out
             return;
         }
-        if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
-          if (fromIndex != -1) {
-            filteredList.remove(fromIndex);
-            if (fromIndex < displayCount) {
-              subListener.onChatRemoved(chatList, chat, fromIndex, changeInfo);
-              displayCount--;
-              dispatchChats(ChangeFlags.ITEM_REMOVED);
-            }
+        if (isHiddenByStealth(chat.id)) {
+          // needSort is always true here, so fromIndex is a valid index inside filteredList
+          filteredList.remove(fromIndex);
+          if (fromIndex < displayCount) {
+            subListener.onChatRemoved(chatList, chat, fromIndex, changeInfo);
+            displayCount--;
+            dispatchChats(ChangeFlags.ITEM_REMOVED);
           }
           return;
         }
@@ -278,7 +291,7 @@ public final class TdlibChatListSlice implements Destroyable {
         final int existingIndex = indexOfChat(chat.id);
         if (existingIndex == -1) {
           if (filter != null && filter.accept(chat)) { // chat became unfiltered
-            if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
+            if (isHiddenByStealth(chat.id)) {
               return;
             }
             TdApi.ChatPosition position = ChatPosition.findPosition(chat, chatList.chatList());
@@ -313,7 +326,7 @@ public final class TdlibChatListSlice implements Destroyable {
         List<Entry> addedEntries = new ArrayList<>(moreChats.size());
         for (TdlibChatList.Entry entry : moreChats) {
           if ((filter == null || filter.accept(entry.chat)) && (!haveCustomModifications || indexOfChat(entry.chat.id) == -1)) {
-            if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(entry.chat.id)) {
+            if (isHiddenByStealth(entry.chat.id)) {
               continue;
             }
             addedEntries.add(new Entry(entry.chat, entry.chatList, entry.effectivePosition, keepPositions));
@@ -403,7 +416,8 @@ public final class TdlibChatListSlice implements Destroyable {
   private boolean haveCustomModifications;
 
   private boolean needSort () {
-    return filter != null || haveCustomModifications;
+    // While stealth mode is on, some chats are hidden, so source list indexes can't be trusted
+    return filter != null || haveCustomModifications || StealthController.getInstance().isStealthEnabled();
   }
 
   public void bringToTop (long chatId, @Nullable Future<TdApi.Function<?>> createFunction, @Nullable Runnable after) {
