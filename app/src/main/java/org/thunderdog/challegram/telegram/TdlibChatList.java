@@ -173,7 +173,9 @@ public final class TdlibChatList implements Comparator<TdlibChatList.Entry> {
   private List<Entry> listCopyImpl (@Nullable Filter<TdApi.Chat> filter) {
     final List<Entry> copy = new ArrayList<>(list.size());
     for (Entry entry : list) {
-      if (filter == null || filter.accept(entry.chat)) {
+      if ((filter == null || filter.accept(entry.chat)) &&
+          (!org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled() ||
+           org.thunderdog.challegram.stealth.StealthController.getInstance().isChatAllowed(entry.chat.id))) {
         copy.add(new Entry(entry.chat, entry.chatList, entry.effectivePosition));
       }
     }

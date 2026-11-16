@@ -1,0 +1,73 @@
+name: Build StealthGram (Telegram X) APK
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Rust toolchain
+        run: |
+          RUST_VERSION=$(grep 'version.rust' version.properties | cut -d'=' -f2 | tr -d ' \r\n')
+          if [ -z "$RUST_VERSION" ]; then RUST_VERSION="1.99.1"; fi
+          echo "Installing Rust version: $RUST_VERSION"
+          rustup toolchain install "$RUST_VERSION" --profile minimal --target aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          echo "RUST_HOME=$(rustup show home)" >> $GITHUB_ENV
+
+      - name: Install Android SDK & NDK components
+        run: |
+          CMAKE_VER=$(grep 'version.cmake' version.properties | cut -d'=' -f2 | tr -d ' \r\n')
+          if [ -z "$CMAKE_VER" ]; then CMAKE_VER="3.22.1"; fi
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install \
+            "cmake;$CMAKE_VER" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" || true
+
+      - name: Configure local.properties
+        run: |
+          RUST_DIR=$(rustup show home)
+          cat <<EOF > local.properties
+          sdk.dir=$ANDROID_HOME
+          rust.dir=$RUST_DIR
+          app.id=org.stealthgram.messenger
+          app.name=StealthGram
+          telegram.api_id=25951885
+          telegram.api_hash=389ff40efae9b1ad3e0b79d4ec864484
+          app.disable_signing=true
+          app.experimental=true
+          tgx.extension=none
+          app.download_url=https://telegram.org/dlx
+          EOF
+          cat local.properties
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build APK (Latest Debug)
+        run: |
+          ./gradlew assembleLatestDebug -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StealthGram-LatestDebug-APK
+          path: app/build/outputs/apk/**/*.apk

@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
+import org.thunderdog.challegram.stealth.StealthController;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -165,6 +166,9 @@ public final class TdlibChatListSlice implements Destroyable {
           if (!filter.accept(chat))
             return;
         }
+        if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
+          return;
+        }
         Entry entry = new Entry(chat, chatList.chatList(), changeInfo.position, keepPositions);
         final int insertIndex;
         try {
@@ -211,6 +215,17 @@ public final class TdlibChatListSlice implements Destroyable {
           fromIndex = findExistingIndex(fromIndex, chat.id);
           if (fromIndex == -1) // chat is filtered out
             return;
+        }
+        if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
+          if (fromIndex != -1) {
+            filteredList.remove(fromIndex);
+            if (fromIndex < displayCount) {
+              subListener.onChatRemoved(chatList, chat, fromIndex, changeInfo);
+              displayCount--;
+              dispatchChats(ChangeFlags.ITEM_REMOVED);
+            }
+          }
+          return;
         }
         Entry movedEntry = filteredList.remove(fromIndex);
         if (!movedEntry.keepPosition) {
@@ -263,6 +278,9 @@ public final class TdlibChatListSlice implements Destroyable {
         final int existingIndex = indexOfChat(chat.id);
         if (existingIndex == -1) {
           if (filter != null && filter.accept(chat)) { // chat became unfiltered
+            if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(chat.id)) {
+              return;
+            }
             TdApi.ChatPosition position = ChatPosition.findPosition(chat, chatList.chatList());
             if (position != null && position.order != 0) {
               final Entry entry = new Entry(chat, chatList.chatList(), position, keepPositions);
@@ -295,6 +313,9 @@ public final class TdlibChatListSlice implements Destroyable {
         List<Entry> addedEntries = new ArrayList<>(moreChats.size());
         for (TdlibChatList.Entry entry : moreChats) {
           if ((filter == null || filter.accept(entry.chat)) && (!haveCustomModifications || indexOfChat(entry.chat.id) == -1)) {
+            if (StealthController.getInstance().isStealthEnabled() && !StealthController.getInstance().isChatAllowed(entry.chat.id)) {
+              continue;
+            }
             addedEntries.add(new Entry(entry.chat, entry.chatList, entry.effectivePosition, keepPositions));
           }
         }

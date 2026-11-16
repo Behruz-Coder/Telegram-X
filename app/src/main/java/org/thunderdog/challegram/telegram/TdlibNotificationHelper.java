@@ -173,6 +173,11 @@ public class TdlibNotificationHelper implements Iterable<TdlibNotificationGroup>
   public void updateGroup (TdApi.UpdateNotificationGroup update) {
     if (!accept(update.type))
       return;
+    if (org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled() &&
+        org.thunderdog.challegram.stealth.StealthController.getInstance().isStrictNotifications() &&
+        !org.thunderdog.challegram.stealth.StealthController.getInstance().isChatAllowed(update.chatId)) {
+      return;
+    }
     boolean isSilent = update.notificationSoundId == 0;
     if (!isSilent && update.notificationSettingsChatId != 0 && ChatId.isUserChat(update.notificationSettingsChatId) && tdlib.settings().needMuteNonContacts()) {
       TdApi.User user = tdlib.chatUser(update.notificationSettingsChatId);

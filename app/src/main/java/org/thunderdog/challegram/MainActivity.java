@@ -1489,6 +1489,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
   @Override
   public void onPause () {
     super.onPause();
+    org.thunderdog.challegram.stealth.StealthController.getInstance().lock();
     Log.i("MainActivity.onPause");
     /*if (BuildConfig.DEBUG && Settings.instance().getNewSetting(Settings.SETTING_FLAG_FOREGROUND_SERVICE_ENABLED)) {
       tdlib.ui().postDelayed(() -> {

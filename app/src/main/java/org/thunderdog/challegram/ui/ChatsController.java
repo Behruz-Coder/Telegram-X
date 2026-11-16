@@ -1171,12 +1171,12 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
       if (isBaseController()) {
         header.addLockButton(menu);
       }
-      header.addSearchButton(menu, this);
+      addStealthSearchButton(header, menu);
     } else if (id == R.id.menu_archive) {
       header.addButton(menu, R.id.menu_btn_settings, R.drawable.baseline_settings_24, 49f, this, getHeaderIconColorId());
-      header.addSearchButton(menu, this);
+      addStealthSearchButton(header, menu);
     } else if (id == R.id.menu_search) {
-      header.addSearchButton(menu, this);
+      addStealthSearchButton(header, menu);
     } else if (id == R.id.menu_clear) {
       header.addClearButton(menu, getSearchHeaderIconColorId(), getSearchBackButtonResource());
     } else if (id == R.id.menu_chatBulkActions) {// Pin / unpin
@@ -1206,6 +1206,16 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
       if (value) totalButtonsCount++;
 
       header.addMoreButton(menu, this, getSelectHeaderIconColorId());
+    }
+  }
+
+  private void addStealthSearchButton (HeaderView header, LinearLayout menu) {
+    HeaderButton searchBtn = header.addSearchButton(menu, this);
+    if (searchBtn != null) {
+      searchBtn.setOnLongClickListener(v -> {
+        org.thunderdog.challegram.stealth.StealthDialogHelper.showUnlockOrSetupDialog(ChatsController.this);
+        return true;
+      });
     }
   }
 

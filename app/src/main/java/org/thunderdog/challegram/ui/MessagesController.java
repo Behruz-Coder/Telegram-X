@@ -641,6 +641,11 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   @Override
   protected View onCreateView (final Context context) {
+    if (org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled() &&
+        !org.thunderdog.challegram.stealth.StealthController.getInstance().isChatAllowed(getChatId())) {
+      postNavigateBack();
+      return new View(context);
+    }
     if (!isInForceTouchMode()) {
       UI.setSoftInputMode(UI.getContext(context), Config.DEFAULT_WINDOW_PARAMS);
     }

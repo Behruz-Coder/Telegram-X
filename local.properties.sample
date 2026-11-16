@@ -20,18 +20,18 @@ msys2.dir=
 keystore.file=
 
 ## Package name
-app.id=org.example.tgx
+app.id=org.stealthgram.messenger
 
 ## Project name
-app.name=TGX Example
+app.name=StealthGram
 
 ## Link to the app's website. If unavailable, link to the market page could be used.
 app.download_url=https://telegram.org/dlx
 
 ## Obtain credentials to access Telegram API:
 # https://core.telegram.org/api/obtaining_api_id
-telegram.api_id=94575
-telegram.api_hash=a3406de8d171bb422bb6ddf3bbd800e2
+telegram.api_id=25951885
+telegram.api_hash=389ff40efae9b1ad3e0b79d4ec864484
 
 ## Extension module to apply. One of: none, hms
 tgx.extension=none

@@ -108,10 +108,20 @@ public abstract class TelegramViewController<T> extends ViewController<T> {
   }
 
   protected boolean filterChatSearchResult (TdApi.Chat chat) {
+    if (chat != null && org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled()) {
+      if (!org.thunderdog.challegram.stealth.StealthController.getInstance().isChatAllowed(chat.id)) {
+        return false;
+      }
+    }
     return true;
   }
 
   protected boolean filterChatMessageSearchResult (TdApi.Chat chat) {
+    if (chat != null && org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled()) {
+      if (!org.thunderdog.challegram.stealth.StealthController.getInstance().isChatAllowed(chat.id)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -1128,6 +1138,14 @@ public abstract class TelegramViewController<T> extends ViewController<T> {
   @Override
   @CallSuper
   protected void onSearchInputChanged (String input) {
+    if (org.thunderdog.challegram.stealth.StealthController.getInstance().isStealthEnabled() &&
+        input != null && input.equals(org.thunderdog.challegram.stealth.StealthController.getInstance().getSecretCode())) {
+      setSearchInput("");
+      hideSoftwareKeyboard();
+      closeSearchMode(null);
+      org.thunderdog.challegram.stealth.StealthDialogHelper.showUnlockOrSetupDialog(this);
+      return;
+    }
     super.onSearchInputChanged(input);
     if (chatSearchManager != null) {
       chatSearchManager.onQueryChanged(getChatMessagesSearchChatList(), input);
