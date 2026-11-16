@@ -68,11 +68,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: List available assemble tasks (diagnostic)
+        run: ./gradlew :app:tasks --all -q | grep -E "^assemble[A-Za-z]*Debug" || true
+
       # ---------- 1) arm64-v8a ----------
-      - name: Build APK (arm64-v8a)
+      - name: Build APK (arm64-v8a, marshmallow)
         run: |
           touch /tmp/marker_arm64
-          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=arm64-v8a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+          ./gradlew assembleMarshmallowDebug -Pandroid.injected.build.abi=arm64-v8a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
 
       - name: Collect and verify arm64-v8a APK
         run: |
@@ -83,10 +86,10 @@ jobs:
           unzip -l "$APK" | grep -q "lib/arm64-v8a/" || { echo "XATO: APK ichida arm64-v8a kutubxonalari yo'q"; exit 1; }
 
       # ---------- 2) armeabi-v7a ----------
-      - name: Build APK (armeabi-v7a)
+      - name: Build APK (armeabi-v7a, marshmallow)
         run: |
           touch /tmp/marker_v7a
-          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+          ./gradlew assembleMarshmallowDebug -Pandroid.injected.build.abi=armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
 
       - name: Collect and verify armeabi-v7a APK
         run: |
@@ -96,35 +99,26 @@ jobs:
           APK=$(ls apk-out/armeabi-v7a/*.apk | head -1)
           unzip -l "$APK" | grep -q "lib/armeabi-v7a/" || { echo "XATO: APK ichida armeabi-v7a kutubxonalari yo'q"; exit 1; }
 
-      # ---------- 3) Imzolash ----------
-      - name: Sign APKs with debug key
+      # ---------- 3) minSdk tekshiruvi ----------
+      - name: Show APK info and check minSdk (must be <= 27)
         run: |
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -1)
-          echo "apksigner: $APKSIGNER"
-
-          keytool -genkeypair -v -keystore debug.keystore \
-            -storepass android -keypass android \
-            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
+          AAPT2=$(find $ANDROID_HOME/build-tools -name aapt2 | sort -V | tail -1)
+          FAIL=0
           for APK in apk-out/*/*.apk; do
-            echo "=== $APK (imzolashdan OLDIN)"
-            "$APKSIGNER" verify --verbose "$APK" || echo ">>> Imzosiz yoki noto'g'ri imzo edi"
-
-            "$APKSIGNER" sign \
-              --ks debug.keystore --ks-pass pass:android --key-pass pass:android \
-              --ks-key-alias androiddebugkey \
-              --v1-signing-enabled true --v2-signing-enabled true \
-              "$APK"
-
-            echo "=== $APK (imzolashdan KEYIN)"
-            "$APKSIGNER" verify --verbose "$APK"
+            echo "=== $APK"
+            "$AAPT2" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|native-code"
+            SDK=$("$AAPT2" dump badging "$APK" | grep -o "^sdkVersion:'[0-9]*'" | grep -o "[0-9]*")
+            if [ -z "$SDK" ] || [ "$SDK" -gt 27 ]; then
+              echo "XATO: minSdk=$SDK, Android 8.1 (SDK 27) da o'rnatilmaydi"
+              FAIL=1
+            fi
           done
+          exit $FAIL
 
       - name: Upload APK Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: StealthGram-LatestDebug-APK
+          name: StealthGram-Marshmallow-Debug-APK
           path: apk-out/**/*.apk
           if-no-files-found: error
