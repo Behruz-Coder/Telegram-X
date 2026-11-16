@@ -80,7 +80,6 @@ jobs:
           find . -name "*.apk" -newer /tmp/marker_arm64 -not -path "./apk-out/*" -exec cp -v {} apk-out/arm64-v8a/ \;
           ls -la apk-out/arm64-v8a
           APK=$(ls apk-out/arm64-v8a/*.apk | head -1)
-          unzip -l "$APK" | grep "lib/arm64-v8a/" | head -5
           unzip -l "$APK" | grep -q "lib/arm64-v8a/" || { echo "XATO: APK ichida arm64-v8a kutubxonalari yo'q"; exit 1; }
 
       # ---------- 2) armeabi-v7a ----------
@@ -95,8 +94,32 @@ jobs:
           find . -name "*.apk" -newer /tmp/marker_v7a -not -path "./apk-out/*" -exec cp -v {} apk-out/armeabi-v7a/ \;
           ls -la apk-out/armeabi-v7a
           APK=$(ls apk-out/armeabi-v7a/*.apk | head -1)
-          unzip -l "$APK" | grep "lib/armeabi-v7a/" | head -5
           unzip -l "$APK" | grep -q "lib/armeabi-v7a/" || { echo "XATO: APK ichida armeabi-v7a kutubxonalari yo'q"; exit 1; }
+
+      # ---------- 3) Imzolash ----------
+      - name: Sign APKs with debug key
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -1)
+          echo "apksigner: $APKSIGNER"
+
+          keytool -genkeypair -v -keystore debug.keystore \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          for APK in apk-out/*/*.apk; do
+            echo "=== $APK (imzolashdan OLDIN)"
+            "$APKSIGNER" verify --verbose "$APK" || echo ">>> Imzosiz yoki noto'g'ri imzo edi"
+
+            "$APKSIGNER" sign \
+              --ks debug.keystore --ks-pass pass:android --key-pass pass:android \
+              --ks-key-alias androiddebugkey \
+              --v1-signing-enabled true --v2-signing-enabled true \
+              "$APK"
+
+            echo "=== $APK (imzolashdan KEYIN)"
+            "$APKSIGNER" verify --verbose "$APK"
+          done
 
       - name: Upload APK Artifact
         if: always()
