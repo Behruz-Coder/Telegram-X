@@ -18,20 +18,27 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.data.TD;
+import org.thunderdog.challegram.navigation.BackHeaderButton;
 import org.thunderdog.challegram.navigation.HeaderButton;
 import org.thunderdog.challegram.navigation.HeaderView;
+import org.thunderdog.challegram.navigation.Menu;
 import org.thunderdog.challegram.navigation.ViewController;
+import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Screen;
+import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.ui.SelectChatsController;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public class StealthManageController extends ViewController<Void> {
+public class StealthManageController extends ViewController<Void> implements Menu {
 
     private TextView allowedChatsSubtitle;
     private TextView decoyChatsSubtitle;
@@ -41,43 +48,54 @@ public class StealthManageController extends ViewController<Void> {
     private CheckBox autoLockCheckbox;
     private CheckBox strictNotifCheckbox;
 
+    public StealthManageController(@NonNull Context context, Tdlib tdlib) {
+        super(context, tdlib);
+    }
+
     public StealthManageController() {
-        super();
+        this(UI.getContext(), TdlibManager.instance().current());
     }
 
     @Override
-    protected int getHeaderTitle() {
-        return 0;
+    public int getId() {
+        return R.id.controller_settings;
     }
 
     @Override
-    public View getCustomHeaderCell() {
-        return null;
+    public CharSequence getName() {
+        return "Yashirin Boshqaruv";
     }
 
     @Override
-    public boolean hasCustomHeader() {
-        return false;
+    protected int getBackButton() {
+        return BackHeaderButton.TYPE_BACK;
+    }
+
+    @Override
+    protected int getMenuId() {
+        return R.id.menu_passcode;
+    }
+
+    @Override
+    public void fillMenuItems(int id, HeaderView header, LinearLayout menu) {
+        if (id == R.id.menu_passcode) {
+            header.addButton(menu, R.id.menu_btn_lock, R.drawable.baseline_lock_24, 49f, this, ColorId.headerIcon);
+        }
+    }
+
+    @Override
+    public void onMenuItemPressed(int id, View view) {
+        if (id == R.id.menu_btn_lock) {
+            StealthController.getInstance().forceLock();
+            Toast.makeText(context(), "Ilova qulflandi", Toast.LENGTH_SHORT).show();
+            navigateBack();
+        }
     }
 
     @Override
     protected View onCreateView(Context context) {
-        HeaderView header = getHeaderView();
-        if (header != null) {
-            header.setTitle("Yashirin Boshqaruv");
-            header.addBackButton(this);
-            HeaderButton lockBtn = header.addButton(R.id.menu_btn_lock, R.drawable.baseline_lock_24, 49f, this, ColorId.headerIcon);
-            if (lockBtn != null) {
-                lockBtn.setOnClickListener(v -> {
-                    StealthController.getInstance().forceLock();
-                    Toast.makeText(context, "Ilova qulflandi", Toast.LENGTH_SHORT).show();
-                    navigateBack();
-                });
-            }
-        }
-
         FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(ColorId.windowBackgroundWhite));
+        root.setBackgroundColor(Theme.getColor(ColorId.filling));
 
         ScrollView scrollView = new ScrollView(context);
         scrollView.setFillViewport(true);
@@ -168,20 +186,24 @@ public class StealthManageController extends ViewController<Void> {
         StealthController controller = StealthController.getInstance();
         Set<Long> current = new LinkedHashSet<>(isDecoy ? controller.getDecoyDialogIds() : controller.getAllowedDialogIds());
 
-        SelectChatsController c = new SelectChatsController();
-        c.setArguments(new SelectChatsController.Arguments(
-                SelectChatsController.MODE_SELECT_CHATS,
-                (mode, chatIds, chatTypes) -> {
-                    if (isDecoy) {
-                        controller.setDecoyDialogIds(chatIds);
-                        updateDecoyChatsText();
-                    } else {
-                        controller.setAllowedDialogIds(chatIds);
-                        updateAllowedChatsText();
-                    }
-                },
-                0, null, current, Collections.emptySet(), false
-        ));
+        TdApi.ChatFolder folder = TD.newChatFolder();
+        long[] ids = new long[current.size()];
+        int i = 0;
+        for (Long id : current) {
+            ids[i++] = id;
+        }
+        folder.includedChatIds = ids;
+
+        SelectChatsController c = new SelectChatsController(context, tdlib);
+        c.setArguments(SelectChatsController.Arguments.includedChats((mode, chatIds, chatTypes) -> {
+            if (isDecoy) {
+                controller.setDecoyDialogIds(chatIds);
+                updateDecoyChatsText();
+            } else {
+                controller.setAllowedDialogIds(chatIds);
+                updateAllowedChatsText();
+            }
+        }, 0, folder, false));
         navigateTo(c);
     }
 

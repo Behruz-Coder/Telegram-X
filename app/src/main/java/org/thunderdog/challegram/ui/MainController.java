@@ -78,6 +78,7 @@ import org.thunderdog.challegram.filegen.PhotoGenerationInfo;
 import org.thunderdog.challegram.filegen.VideoGenerationInfo;
 import org.thunderdog.challegram.loader.ImageReader;
 import org.thunderdog.challegram.navigation.BackHeaderButton;
+import org.thunderdog.challegram.navigation.HeaderButton;
 import org.thunderdog.challegram.navigation.HeaderView;
 import org.thunderdog.challegram.navigation.Menu;
 import org.thunderdog.challegram.navigation.MenuMoreWrap;
