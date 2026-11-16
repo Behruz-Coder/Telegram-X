@@ -28,6 +28,9 @@ jobs:
           distribution: 'temurin'
           java-version: '25'
 
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Install Rust toolchain
         run: |
           RUST_VERSION=$(grep 'version.rust' version.properties | cut -d'=' -f2 | tr -d ' \r\n')
@@ -61,14 +64,13 @@ jobs:
           tgx.extension=none
           app.download_url=https://telegram.org/dlx
           EOF
-          cat local.properties
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build APK (Latest Debug)
+      - name: Build APK (Latest Debug, ARM only)
         run: |
-          ./gradlew assembleLatestDebug -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=arm64-v8a,armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
