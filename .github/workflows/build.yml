@@ -68,12 +68,40 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build APK (Latest Debug, ARM only)
+      # ---------- 1) arm64-v8a ----------
+      - name: Build APK (arm64-v8a)
         run: |
-          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=arm64-v8a,armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+          touch /tmp/marker_arm64
+          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=arm64-v8a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+
+      - name: Collect and verify arm64-v8a APK
+        run: |
+          mkdir -p apk-out/arm64-v8a
+          find . -name "*.apk" -newer /tmp/marker_arm64 -not -path "./apk-out/*" -exec cp -v {} apk-out/arm64-v8a/ \;
+          ls -la apk-out/arm64-v8a
+          APK=$(ls apk-out/arm64-v8a/*.apk | head -1)
+          unzip -l "$APK" | grep "lib/arm64-v8a/" | head -5
+          unzip -l "$APK" | grep -q "lib/arm64-v8a/" || { echo "XATO: APK ichida arm64-v8a kutubxonalari yo'q"; exit 1; }
+
+      # ---------- 2) armeabi-v7a ----------
+      - name: Build APK (armeabi-v7a)
+        run: |
+          touch /tmp/marker_v7a
+          ./gradlew assembleLatestDebug -Pandroid.injected.build.abi=armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --stacktrace
+
+      - name: Collect and verify armeabi-v7a APK
+        run: |
+          mkdir -p apk-out/armeabi-v7a
+          find . -name "*.apk" -newer /tmp/marker_v7a -not -path "./apk-out/*" -exec cp -v {} apk-out/armeabi-v7a/ \;
+          ls -la apk-out/armeabi-v7a
+          APK=$(ls apk-out/armeabi-v7a/*.apk | head -1)
+          unzip -l "$APK" | grep "lib/armeabi-v7a/" | head -5
+          unzip -l "$APK" | grep -q "lib/armeabi-v7a/" || { echo "XATO: APK ichida armeabi-v7a kutubxonalari yo'q"; exit 1; }
 
       - name: Upload APK Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: StealthGram-LatestDebug-APK
-          path: app/build/outputs/apk/**/*.apk
+          path: apk-out/**/*.apk
+          if-no-files-found: error
