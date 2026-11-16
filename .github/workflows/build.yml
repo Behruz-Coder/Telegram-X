@@ -82,6 +82,95 @@ jobs:
           unzip -l "$APK" | grep -q "lib/armeabi-v7a/" || { echo "XATO: APK ichida armeabi-v7a kutubxonalari yo'q"; exit 1; }
           if unzip -l "$APK" | grep -q "lib/arm64-v8a/"; then echo "XATO: APK ichida arm64-v8a ham bor"; exit 1; fi
 
+      - name: Remove testOnly flag and re-sign
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          AAPT2="$BT/aapt2"; ZIPALIGN="$BT/zipalign"; APKSIGNER="$BT/apksigner"
+          APK=$(ls apk-out/*.apk | head -1)
+          echo "APK: $APK"
+
+          echo "--- testOnly OLDIN:"
+          "$AAPT2" dump xmltree --file AndroidManifest.xml "$APK" | grep -i testOnly || echo "(testOnly qatori yo'q)"
+
+          python3 - "$APK" /tmp/patched.apk <<'PY'
+          import sys, struct, zipfile, re
+
+          src, dst = sys.argv[1], sys.argv[2]
+          TESTONLY = 0x01010272
+
+          def patch_manifest(data):
+              data = bytearray(data)
+              pos = 8
+              resmap = []
+              found = 0
+              patched = 0
+              while pos + 8 <= len(data):
+                  ctype, hsize, csize = struct.unpack_from('<HHI', data, pos)
+                  if ctype == 0x0180:
+                      n = (csize - hsize) // 4
+                      resmap = list(struct.unpack_from('<%dI' % n, data, pos + hsize))
+                  elif ctype == 0x0102:
+                      ns, name, attr_start, attr_size, attr_count = struct.unpack_from('<IIHHH', data, pos + 16)
+                      base = pos + 16 + attr_start
+                      for i in range(attr_count):
+                          off = base + i * attr_size
+                          a_ns, a_name, a_raw, t_size, t_res0, t_type, t_data = struct.unpack_from('<IIIHBBI', data, off)
+                          if a_name < len(resmap) and resmap[a_name] == TESTONLY:
+                              found += 1
+                              if t_data != 0:
+                                  struct.pack_into('<I', data, off + 16, 0)
+                                  patched += 1
+                  if csize == 0:
+                      break
+                  pos += csize
+              return bytes(data), found, patched
+
+          sig = re.compile(r'^META-INF/([^/]+\.(SF|RSA|DSA|EC)|MANIFEST\.MF)$', re.I)
+          zin = zipfile.ZipFile(src)
+          zout = zipfile.ZipFile(dst, 'w')
+          done = False
+          for item in zin.infolist():
+              if sig.match(item.filename):
+                  continue
+              data = zin.read(item.filename)
+              if item.filename == 'AndroidManifest.xml':
+                  data, found, patched = patch_manifest(data)
+                  print('testOnly atributlari topildi: %d, o\'zgartirildi: %d' % (found, patched))
+                  if found == 0:
+                      print("XATO: testOnly atributi manifestda topilmadi")
+                      sys.exit(3)
+                  done = True
+              zi = zipfile.ZipInfo(item.filename, date_time=item.date_time)
+              zi.compress_type = item.compress_type
+              zi.external_attr = item.external_attr
+              zout.writestr(zi, data)
+          zout.close()
+          if not done:
+              print("XATO: AndroidManifest.xml topilmadi")
+              sys.exit(4)
+          PY
+
+          "$ZIPALIGN" -f -p 4 /tmp/patched.apk /tmp/aligned.apk
+
+          keytool -genkeypair -keystore /tmp/debug.keystore \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          "$APKSIGNER" sign --ks /tmp/debug.keystore --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias androiddebugkey /tmp/aligned.apk
+
+          "$APKSIGNER" verify --verbose /tmp/aligned.apk
+
+          echo "--- testOnly KEYIN:"
+          "$AAPT2" dump xmltree --file AndroidManifest.xml /tmp/aligned.apk | grep -i testOnly || true
+          if "$AAPT2" dump xmltree --file AndroidManifest.xml /tmp/aligned.apk | grep -i testOnly | grep -i -E "true|0xffffffff"; then
+            echo "XATO: testOnly hali ham true"
+            exit 1
+          fi
+
+          cp -v /tmp/aligned.apk "$APK"
+
       - name: Show APK info (minSdk)
         run: |
           AAPT2=$(find $ANDROID_HOME/build-tools -name aapt2 | sort -V | tail -1)
@@ -90,7 +179,7 @@ jobs:
             "$AAPT2" dump badging "$APK" | grep -E "^package:|minSdkVersion|targetSdkVersion|native-code"
             SDK=$("$AAPT2" dump badging "$APK" | grep -o "^minSdkVersion:'[0-9]*'" | grep -o "[0-9]*" || true)
             if [ -z "$SDK" ]; then
-              echo "OGOHLANTIRISH: minSdk o'qilmadi, tekshirib bo'lmadi"
+              echo "OGOHLANTIRISH: minSdk o'qilmadi"
             elif [ "$SDK" -gt 27 ]; then
               echo "XATO: minSdk=$SDK, Android 8.1 (SDK 27) da o'rnatilmaydi"
               exit 1
