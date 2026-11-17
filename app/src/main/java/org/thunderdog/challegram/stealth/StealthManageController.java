@@ -3,6 +3,7 @@ package org.thunderdog.challegram.stealth;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -90,6 +91,30 @@ public class StealthManageController extends ViewController<Void> implements Men
             Toast.makeText(context(), "Ilova qulflandi", Toast.LENGTH_SHORT).show();
             navigateBack();
         }
+    }
+
+    // ---------- Mavzuga mos ranglar (day / night) ----------
+
+    private boolean isDarkBackground() {
+        int c = Theme.getColor(ColorId.filling);
+        double luminance = (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) / 255.0;
+        return luminance < 0.5;
+    }
+
+    private int titleColor() {
+        return isDarkBackground() ? 0xFFEEEEEE : 0xFF222222;
+    }
+
+    private int subtitleColor() {
+        return isDarkBackground() ? 0xFFAAAAAA : 0xFF888888;
+    }
+
+    private int infoColor() {
+        return isDarkBackground() ? 0xFF888888 : 0xFF999999;
+    }
+
+    private int accentColor() {
+        return isDarkBackground() ? 0xFF5FA8F5 : 0xFF3388EE;
     }
 
     @Override
@@ -423,7 +448,7 @@ public class StealthManageController extends ViewController<Void> implements Men
         tv.setText(title);
         tv.setTextSize(15);
         tv.setTypeface(null, android.graphics.Typeface.BOLD);
-        tv.setTextColor(0xFF3388EE);
+        tv.setTextColor(accentColor());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, Screen.dp(16), 0, Screen.dp(8));
         container.addView(tv, lp);
@@ -439,13 +464,13 @@ public class StealthManageController extends ViewController<Void> implements Men
         TextView tvTitle = new TextView(container.getContext());
         tvTitle.setText(title);
         tvTitle.setTextSize(16);
-        tvTitle.setTextColor(0xFF222222);
+        tvTitle.setTextColor(titleColor());
         row.addView(tvTitle);
 
         TextView tvSub = new TextView(container.getContext());
         tvSub.setText(subtitle);
         tvSub.setTextSize(13);
-        tvSub.setTextColor(0xFF888888);
+        tvSub.setTextColor(subtitleColor());
         row.addView(tvSub);
 
         container.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -462,7 +487,7 @@ public class StealthManageController extends ViewController<Void> implements Men
         TextView tvTitle = new TextView(container.getContext());
         tvTitle.setText(title);
         tvTitle.setTextSize(16);
-        tvTitle.setTextColor(0xFF222222);
+        tvTitle.setTextColor(titleColor());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
         row.addView(tvTitle, lp);
 
@@ -481,7 +506,7 @@ public class StealthManageController extends ViewController<Void> implements Men
         TextView tv = new TextView(container.getContext());
         tv.setText(text);
         tv.setTextSize(12);
-        tv.setTextColor(0xFF999999);
+        tv.setTextColor(infoColor());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, Screen.dp(12));
         container.addView(tv, lp);
