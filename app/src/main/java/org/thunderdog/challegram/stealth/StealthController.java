@@ -56,6 +56,9 @@ public class StealthController {
     private int currentMode = MODE_NORMAL;
     private boolean isUnlocked = false;
 
+    // O'ZGARGAN: bir nechta ketma-ket notifyReload() chaqiruvini bittaga birlashtirish uchun
+    private boolean reloadPending = false;
+
     public static StealthController getInstance() {
         StealthController local = instance;
         if (local == null) {
@@ -283,9 +286,13 @@ public class StealthController {
         if (!TextUtils.isEmpty(masterPinHash) && masterPinSalt != null && masterPinSalt.length > 0) {
             String hash = hashPin(pin, masterPinSalt);
             if (hash.equals(masterPinHash)) {
+                // O'ZGARGAN: holat o'zgarmagan bo'lsa, ekranni qayta yaratmaymiz
+                final boolean changed = !isUnlocked || currentMode != MODE_NORMAL;
                 isUnlocked = true;
                 currentMode = MODE_NORMAL;
-                notifyReload();
+                if (changed) {
+                    notifyReload();
+                }
                 return RESULT_MASTER;
             }
         }
@@ -294,9 +301,13 @@ public class StealthController {
         if (decoyEnabled && !TextUtils.isEmpty(decoyPinHash) && decoyPinSalt != null && decoyPinSalt.length > 0) {
             String hash = hashPin(pin, decoyPinSalt);
             if (hash.equals(decoyPinHash)) {
+                // O'ZGARGAN: holat o'zgarmagan bo'lsa, ekranni qayta yaratmaymiz
+                final boolean changed = isUnlocked || currentMode != MODE_DECOY;
                 isUnlocked = false;
                 currentMode = MODE_DECOY;
-                notifyReload();
+                if (changed) {
+                    notifyReload();
+                }
                 return RESULT_DECOY;
             }
         }
@@ -320,9 +331,13 @@ public class StealthController {
 
     public synchronized void lock() {
         if (autoLock) {
+            // O'ZGARGAN: allaqachon qulflangan bo'lsa, ekranni qayta yaratmaymiz
+            final boolean changed = isUnlocked || currentMode != MODE_NORMAL;
             isUnlocked = false;
             currentMode = MODE_NORMAL;
-            notifyReload();
+            if (changed) {
+                notifyReload();
+            }
         }
     }
 
@@ -448,10 +463,21 @@ public class StealthController {
         }
     }
 
+    // O'ZGARGAN: ketma-ket chaqiruvlar bitta recreate() ga birlashadi,
+    // yopilayotgan activity'ga recreate() chaqirilmaydi
     public void notifyReload() {
+        synchronized (this) {
+            if (reloadPending) {
+                return;
+            }
+            reloadPending = true;
+        }
         UI.post(() -> {
+            synchronized (StealthController.this) {
+                reloadPending = false;
+            }
             BaseActivity activity = UI.getUiContext();
-            if (activity != null) {
+            if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
                 activity.recreate();
             }
         });
