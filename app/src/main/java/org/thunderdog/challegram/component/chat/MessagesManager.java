@@ -566,7 +566,9 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     loader.reuse();
     resetSponsoredContext();
     messageViewer = null;
-    adapter.clear(true);
+    if (adapter != null) {
+      adapter.clear(true);
+    }
     clearHeaderMessage();
     awaitingForPinnedMessages = false;
     wasScrollByUser = false;
@@ -1403,6 +1405,9 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   }
 
   private void scrollToPositionWithOffsetImpl (int position, int offset) {
+    if (manager == null) {
+      return; // view hali qurilmagan yoki allaqachon yopilgan
+    }
     manager.scrollToPositionWithOffset(position, offset);
   }
 
